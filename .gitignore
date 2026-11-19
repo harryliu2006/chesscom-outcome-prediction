@@ -1,7 +1,9 @@
+*.pdf
+*.pyc
+.DS_Store
+.ipynb_checkpoints/
 .venv/
 __pycache__/
-*.pyc
-.ipynb_checkpoints/
-.DS_Store
+data/
 data/raw/
-*.pdf
+logs/
