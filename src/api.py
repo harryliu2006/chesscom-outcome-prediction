@@ -10,7 +10,9 @@ failing, ``ApiError`` is raised and the caller decides whether to skip it.
 from __future__ import annotations
 
 import json
+import threading
 import time
+import uuid
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -31,20 +33,39 @@ class ChessComClient:
         self.cache_dir = cache_dir
         self.max_retries = max_retries
         self.pause = pause
-        self.session = requests.Session()
-        self.session.headers["User-Agent"] = USER_AGENT
+        self._local = threading.local()  # one requests.Session per thread
         self.n_network = 0
+
+    @property
+    def session(self) -> requests.Session:
+        s = getattr(self._local, "session", None)
+        if s is None:
+            s = self._local.session = requests.Session()
+            s.headers["User-Agent"] = USER_AGENT
+        return s
 
     def _cache_path(self, url: str) -> Path:
         path = urlparse(url).path.strip("/")
         return self.cache_dir / f"{path}.json"
 
-    def get(self, url_or_path: str) -> dict | None:
-        """Return parsed JSON, or None if the resource does not exist (404/410)."""
+    def get(self, url_or_path: str, transform=None, cache_path: Path | None = None) -> dict | None:
+        """Return parsed JSON, or None if the resource does not exist (404/410).
+
+        ``transform`` shrinks a response before it is cached (e.g. drop move text);
+        the cache then only ever holds the transformed version. ``cache_path``
+        overrides where it is stored."""
         url = url_or_path if url_or_path.startswith("http") else f"{BASE}/{url_or_path.lstrip('/')}"
-        cp = self._cache_path(url)
+        cp = cache_path or self._cache_path(url)
         if cp.exists():
             data = json.loads(cp.read_text())
+            return None if data == MISSING else data
+        raw_cp = self._cache_path(url)
+        if transform and raw_cp != cp and raw_cp.exists():
+            # an older run cached the full response: convert it and free the space
+            data = json.loads(raw_cp.read_text())
+            data = MISSING if data == MISSING else transform(data)
+            self._write(cp, data)
+            raw_cp.unlink()
             return None if data == MISSING else data
 
         delay = 2.0
@@ -58,6 +79,8 @@ class ChessComClient:
             else:
                 if r.status_code == 200:
                     data = r.json()
+                    if transform:
+                        data = transform(data)
                     self._write(cp, data)
                     if self.pause:
                         time.sleep(self.pause)
@@ -75,6 +98,6 @@ class ChessComClient:
     @staticmethod
     def _write(cp: Path, data) -> None:
         cp.parent.mkdir(parents=True, exist_ok=True)
-        tmp = cp.with_suffix(".tmp")
+        tmp = cp.with_suffix(f".{uuid.uuid4().hex}.tmp")
         tmp.write_text(json.dumps(data))
         tmp.replace(cp)

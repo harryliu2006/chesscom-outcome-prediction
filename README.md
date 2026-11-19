@@ -25,6 +25,24 @@ starts from two known events plus a few regular players, then snowballs through 
 participant's `/player/{u}/tournaments` history. It stops once 300 histories in a row
 turn up no new 2026 event.
 
+**Storage:** the API always returns full move text, which we never use. Responses are
+reduced to the fields we need before caching: players, ratings, results, start/end time,
+time control and tournament, blitz games only. Raw archives would take about 12 GB; the
+compact cache is about 0.8 GB. A full run from scratch takes about 10 minutes
+(archive downloads run 8 at a time).
+
+**Missing rounds:** six round groups permanently return 404 (Aug 4 rounds 1/4/6, Aug 18
+round 4, Aug 25 round 1, Jun 23 round 8). Their games are rebuilt from players' monthly
+archives, which tag each game with its tournament. Games in a round start within about 2 s
+of each other and rounds are about 10 min apart, so games are clustered by start time into
+rounds. A rebuild is accepted only if the number of clusters equals the number of rounds
+and every known game lands in its own round. All six passed: 1,146 games recovered, marked
+`source = archive_rebuild` in `games.csv`; details in `rebuilt_rounds.json`.
+
+**2026 collection result:** 46 events (every Tuesday from Jan 6 to Nov 17), 90,795 games,
+2,768 players. Outcomes: 48.5% White wins, 8.5% draws, 42.9% Black wins. 99.1% of
+round-1 player entries have a blitz game before the event to take a pre-game rating from.
+
 **Outputs (`data/processed/`):**
 
 | File | Contents |
@@ -34,6 +52,7 @@ turn up no new 2026 event.
 | `players.csv` | Profile per participant (title, country, joined, …) |
 | `player_history.csv` | Each participant's blitz games from their monthly archives around each event (used for pre-event features) |
 | `excluded_events.json` | Candidate events skipped and why |
+| `rebuilt_rounds.json` | Rounds rebuilt from archives, with consistency checks |
 
 ## Data leakage rules
 
