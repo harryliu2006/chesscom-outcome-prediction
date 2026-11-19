@@ -72,4 +72,8 @@ Found while exploring the API; the feature code enforces them:
 - **Nothing produced during the game** is a feature: moves, FEN, ECO opening, termination, end time.
 - **Archive-based features use a cutoff at the event's start time**; within-event features use rounds before *r* only.
 - **Player usernames are not a feature**; rating already captures player strength.
+- **Round-1 games without a pre-game rating are dropped** (165 of 8,918 round-1 games, 0.18%
+  of all games). In these games one player has no blitz game in the 6 months before the
+  event: they were inactive, played only bullet/rapid, had a new account, or their archive
+  is hidden by the API. The post-round-1 rating cannot stand in, because it contains the result.
 - **Train/test split is by event, in time order** (no random split across rounds of one event).
