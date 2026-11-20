@@ -106,6 +106,42 @@ games are dropped.
 
 **Result:** 90,495 of 90,795 games (300 dropped, 0.33%).
 
+## Split and baseline
+
+```bash
+.venv/bin/python -m src.baseline
+```
+
+**Split** (`src/split.py`), by whole events in time order:
+- **Test:** the last 6 events, Oct 13 – Nov 17 (12,461 games, 13.8%). Scored once, at the
+  end, for the final comparison; nothing is tuned on it.
+- **Train:** the first 40 events (78,034 games). Feature selection and tuning use
+  expanding-window folds: fit on events 1..k, validate on the next 4 (k = 20, 24, …, 36:
+  5 folds). Every validation game is later than every game it was fitted on.
+
+**Elo baseline.** The Elo formula gives White's expected score
+E = 1 / (1 + 10^(−diff/400)) = P(white) + ½·P(draw). The only thing learned is the
+training draw rate d: P(draw) = d, P(white) = E − d/2, P(black) = 1 − E − d/2.
+
+Cross-validation results (mean of 5 folds; results in `results/baseline_cv.json`):
+
+| Model | Log loss | Brier | Accuracy |
+|---|---|---|---|
+| Class frequencies (floor) | 0.922 | 0.572 | 48.8% |
+| **Elo formula** | **0.860** | **0.479** | **67.5%** |
+
+**Elo is overconfident for these players** (training games, binned by E):
+
+| Elo expected score for White | 0.0–0.1 | 0.1–0.2 | 0.2–0.3 | 0.7–0.8 | 0.8–0.9 | 0.9–1.0 |
+|---|---|---|---|---|---|---|
+| White's actual score | 0.165 | 0.255 | 0.346 | 0.706 | 0.788 | 0.878 |
+
+Underdogs score about 0.10 more than Elo predicts and favourites about 0.05–0.06 less; the
+gap is larger for White underdogs, consistent with White's first-move advantage, which Elo
+ignores. Draws are 14–15% between evenly matched players and 5–6% in lopsided games, while
+the baseline uses one draw rate. Few games are evenly matched: the Swiss system pairs the
+top half against the bottom half early on. These are the patterns a trained model can learn.
+
 ## Data leakage rules
 
 Found while exploring the API; the feature code enforces them:

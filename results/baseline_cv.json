@@ -1,0 +1,190 @@
+{
+ "train_games": 78034,
+ "test_games": 12461,
+ "folds": [
+  {
+   "fold": 1,
+   "model": "class_frequency",
+   "fit_events": 20,
+   "val_events": 4,
+   "log_loss": 0.924741291256929,
+   "brier": 0.5728355880269715,
+   "accuracy": 0.492091806397907,
+   "n": 8409
+  },
+  {
+   "fold": 1,
+   "model": "elo",
+   "fit_events": 20,
+   "val_events": 4,
+   "log_loss": 0.8471552228937457,
+   "brier": 0.478792189192706,
+   "accuracy": 0.6734451183256035,
+   "n": 8409
+  },
+  {
+   "fold": 2,
+   "model": "class_frequency",
+   "fit_events": 24,
+   "val_events": 4,
+   "log_loss": 0.9284665625305092,
+   "brier": 0.5749515311000797,
+   "accuracy": 0.4827673273576569,
+   "n": 7921
+  },
+  {
+   "fold": 2,
+   "model": "elo",
+   "fit_events": 24,
+   "val_events": 4,
+   "log_loss": 0.8485336423671999,
+   "brier": 0.4747616829485815,
+   "accuracy": 0.6779447039515213,
+   "n": 7921
+  },
+  {
+   "fold": 3,
+   "model": "class_frequency",
+   "fit_events": 28,
+   "val_events": 4,
+   "log_loss": 0.9205801423660724,
+   "brier": 0.5717414869393646,
+   "accuracy": 0.47988849064117883,
+   "n": 7533
+  },
+  {
+   "fold": 3,
+   "model": "elo",
+   "fit_events": 28,
+   "val_events": 4,
+   "log_loss": 0.8902795802557154,
+   "brier": 0.485323950758364,
+   "accuracy": 0.6715783884242665,
+   "n": 7533
+  },
+  {
+   "fold": 4,
+   "model": "class_frequency",
+   "fit_events": 32,
+   "val_events": 4,
+   "log_loss": 0.921488406285929,
+   "brier": 0.5715967567771112,
+   "accuracy": 0.48915072328511433,
+   "n": 8572
+  },
+  {
+   "fold": 4,
+   "model": "elo",
+   "fit_events": 32,
+   "val_events": 4,
+   "log_loss": 0.8630797795829425,
+   "brier": 0.48087262023331756,
+   "accuracy": 0.6733551096593561,
+   "n": 8572
+  },
+  {
+   "fold": 5,
+   "model": "class_frequency",
+   "fit_events": 36,
+   "val_events": 4,
+   "log_loss": 0.9122136264251494,
+   "brier": 0.5671287563860085,
+   "accuracy": 0.4977320500055316,
+   "n": 9039
+  },
+  {
+   "fold": 5,
+   "model": "elo",
+   "fit_events": 36,
+   "val_events": 4,
+   "log_loss": 0.8507893887995908,
+   "brier": 0.47356929140482645,
+   "accuracy": 0.6780617324925323,
+   "n": 9039
+  }
+ ],
+ "mean": {
+  "class_frequency": {
+   "log_loss": 0.9215,
+   "brier": 0.57165,
+   "accuracy": 0.48833
+  },
+  "elo": {
+   "log_loss": 0.85997,
+   "brier": 0.47866,
+   "accuracy": 0.67488
+  }
+ },
+ "elo_calibration": [
+  {
+   "elo_expected": "(0.0, 0.1]",
+   "games": 5550,
+   "mean_E": 0.0666,
+   "actual_score": 0.165,
+   "draw_rate": 0.0631
+  },
+  {
+   "elo_expected": "(0.1, 0.2]",
+   "games": 11037,
+   "mean_E": 0.1543,
+   "actual_score": 0.255,
+   "draw_rate": 0.0847
+  },
+  {
+   "elo_expected": "(0.2, 0.3]",
+   "games": 16007,
+   "mean_E": 0.2474,
+   "actual_score": 0.3458,
+   "draw_rate": 0.0959
+  },
+  {
+   "elo_expected": "(0.3, 0.4]",
+   "games": 5193,
+   "mean_E": 0.3333,
+   "actual_score": 0.4147,
+   "draw_rate": 0.1073
+  },
+  {
+   "elo_expected": "(0.4, 0.5]",
+   "games": 619,
+   "mean_E": 0.4387,
+   "actual_score": 0.4742,
+   "draw_rate": 0.1438
+  },
+  {
+   "elo_expected": "(0.5, 0.6]",
+   "games": 722,
+   "mean_E": 0.5638,
+   "actual_score": 0.5783,
+   "draw_rate": 0.1537
+  },
+  {
+   "elo_expected": "(0.6, 0.7]",
+   "games": 5293,
+   "mean_E": 0.6673,
+   "actual_score": 0.6536,
+   "draw_rate": 0.1079
+  },
+  {
+   "elo_expected": "(0.7, 0.8]",
+   "games": 16579,
+   "mean_E": 0.753,
+   "actual_score": 0.7064,
+   "draw_rate": 0.0853
+  },
+  {
+   "elo_expected": "(0.8, 0.9]",
+   "games": 11267,
+   "mean_E": 0.8458,
+   "actual_score": 0.7883,
+   "draw_rate": 0.0711
+  },
+  {
+   "elo_expected": "(0.9, 1.0]",
+   "games": 5767,
+   "mean_E": 0.9336,
+   "actual_score": 0.8779,
+   "draw_rate": 0.051
+  }
+ ]
+}
