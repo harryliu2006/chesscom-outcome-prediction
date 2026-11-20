@@ -226,6 +226,60 @@ Training events only (76,493 games); the test events stay unseen. Plots in `resu
 - **Overall, form adds a little, consistently**: about 0.5% lower log loss than rating
   difference alone. Rating already contains most of what is predictable before the game.
 
+## Models and tuning
+
+```bash
+.venv/bin/python -m src.model
+```
+
+**Inputs** (`MODEL_FEATURES` in `src/model.py`, chosen on the training folds with
+`src/feature_selection.py`): `rating_diff`, `rating_mean`, `diff_games_30d`,
+`white_draw_rate_30d`, `black_draw_rate_30d`.
+
+**One preprocessing pipeline for every model** (scikit-learn `Pipeline`), learned only from
+the data the model is fitted on: `diff_games_30d` on a signed log scale, missing draw rates
+(players with no rated blitz game in the last 30 days, ~0.5% per side) filled with the
+training median, all features standardised.
+
+**Tuning on the 5 CV folds** (results in `results/model_cv.json`; the test set is not used):
+
+| Model | Inputs | Grid | Chosen | CV log loss | Brier | Accuracy |
+|---|---|---|---|---|---|---|
+| Elo formula | rating difference | – | – | 0.8418 | 0.4691 | 68.3% |
+| Logistic regression | `rating_diff` | C ∈ {0.001 … 100} | C = 0.01 | 0.7888 | 0.4580 | 68.3% |
+| Logistic regression | 5 features | C ∈ {0.001 … 100} | C = 0.01 | 0.7851 | 0.4566 | 68.3% |
+| Gradient-boosted trees | 5 features | 24 settings | learning rate 0.03, 7 leaves, ≥ 200 games per leaf | **0.7839** | **0.4563** | 68.3% |
+
+- Regularisation barely matters for the logistic regressions (≤ 0.0001 across the grid):
+  with ~60,000 games and 1–5 inputs there is little to overfit.
+- Small trees win: 7 leaves beats 15 and 31. The trees stop early on their own
+  (scikit-learn holds out 10% of the fitting data), which is why 100 and 300 rounds give the
+  same result.
+- The 5-feature models beat `rating_diff` alone in 5/5 folds. The trees beat the 5-feature
+  regression in only 3/5 folds (by 0.002–0.003 in the three latest folds, worse by 0.0005 in
+  the two earliest), so whether the trees' non-linearity helps is not settled on CV.
+- Accuracy is identical across models: the most likely outcome is almost always "the
+  higher-rated player wins". The models differ in how well their probabilities are
+  calibrated, which log loss and Brier measure.
+
+## Evaluation plan (fixed before scoring the test set)
+
+Committed before the test set is scored, so the comparison can't be tuned to it.
+
+1. **Models:** the four above, with the settings chosen on CV. Nothing else is tuned.
+2. **Fit:** each model is refitted on all 40 training events (76,493 games), then scores the
+   6 test events (Oct 13 – Nov 17, 12,144 games) **once**.
+3. **Metrics:** log loss (primary), Brier score, accuracy; per-class results (how well draws
+   are predicted); a calibration plot of predicted vs actual White win, draw and Black win
+   rates.
+4. **Uncertainty:** 1,000 bootstrap resamples of the test games. Each model is scored on the
+   same resamples, giving 95% intervals for each model and for the paired differences
+   (5-feature regression vs `rating_diff` only; trees vs 5-feature regression; each vs Elo).
+   A difference counts as real only if its interval excludes 0. Caveat: games in one event
+   share players, so these intervals are somewhat too narrow.
+5. **Reported as is:** whatever the test result, including if the form features or the trees
+   do not help.
+
 ## Data leakage rules
 
 Found while exploring the API; the feature code enforces them:
