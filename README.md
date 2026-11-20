@@ -180,6 +180,52 @@ ignores. Draws are 14–15% between evenly matched players and 5–6% in lopside
 the baseline uses one draw rate. Few games are evenly matched: the Swiss system pairs the
 top half against the bottom half early on. These are the patterns a trained model can learn.
 
+## Exploratory analysis
+
+```bash
+.venv/bin/python -m src.eda
+```
+
+Training events only (76,493 games); the test events stay unseen. Plots in `results/eda/`.
+
+| Plot | Finding |
+|---|---|
+| `1_score_vs_rating_diff.png` | **Elo is too confident at large gaps**: at −500 White scores 0.11 vs Elo's 0.05; at +500, 0.89 vs 0.95. At equal ratings (±50) White scores **0.529**: the first-move advantage. Rating differences are **bimodal** (peaks at ±200): Swiss pairing puts the top half against the bottom half, so evenly matched games are rare. |
+| `2_draw_rate.png` | Draws fall with the rating gap (16% when within 50 points, 4% beyond 500) and **rise sharply above 3,000 average rating** (19% for close games at 3,000+, about 9% below 2,800). |
+| `3_outcomes.png` | White 48.6%, draw 8.7%, Black 42.7%. The outcome mix moves smoothly with the rating gap. |
+| `4_form_distributions.png` | `games_30d` is heavy-tailed (median 75, up to 2,900): used on a log scale. `rating_change_30d` is right-skewed (fast risers: new accounts). `draw_rate_30d` has a spike at 0 (players with few games). |
+| `5_correlations.png` | Redundant pairs: `elo_expected` is a monotone transform of `rating_diff` (rank correlation 1.00); `white/black_rating_pre` are `rating_mean` ± `rating_diff`/2; `score_vs_expected_30d` and `rating_change_30d` correlate 0.83 per player. Form features are only weakly related to rating (|ρ| ≤ 0.3). |
+| `6_residuals.png` | Residuals of a `rating_diff`-only model against other features (see below). |
+
+**Does anything add signal beyond `rating_diff`?** Two checks, both out of sample:
+1. **Residual plots:** fit a model on `rating_diff` alone, then plot what it gets wrong (actual
+   − predicted, in validation folds) against each other feature. A flat line at 0 means the
+   feature adds nothing.
+2. **Incremental log loss:** cross-validated log loss of a logistic regression on
+   `rating_diff` (0.789) vs `rating_diff` + one feature (`results/eda/incremental_signal.json`).
+
+| Added to `rating_diff` | Δ CV log loss | Folds better |
+|---|---|---|
+| `rating_mean` (= `white_rating_pre` or `black_rating_pre`: same information) | −0.0014 | 5/5 |
+| `diff_games_30d` | −0.0013 | 5/5 |
+| `black_draw_rate_30d` / `white_draw_rate_30d` | −0.0010 / −0.0007 | 5/5 |
+| `diff_score_vs_expected_30d` | −0.0003 | 4/5 |
+| `elo_expected` | 0.0000 | 3/5 |
+| `rating_change_30d` (any form) | ≥ 0 | ≤ 2/5 |
+| **all of the above** | **−0.0039** (0.789 → 0.785) | **5/5** |
+
+- **Among the rating features only `rating_mean` adds anything**, and mostly for draws: the
+  draw residual jumps by +0.05 above 3,000. `elo_expected` adds nothing (same ordering as
+  `rating_diff`), and the two pre-game ratings carry exactly `rating_mean` + `rating_diff`.
+- **The more active player underperforms their rating** (`diff_games_30d`: about −0.035 score
+  at the extremes). A plausible reading: frequent players' ratings are inflated by farming
+  weaker opponents, while rarely-playing strong players are underrated.
+- **Recent rating gains do not carry forward**: players up 100+ points in 30 days score
+  slightly *below* prediction (regression to the mean), but the shape is not linear, so a
+  linear model gains nothing from it.
+- **Overall, form adds a little, consistently**: about 0.5% lower log loss than rating
+  difference alone. Rating already contains most of what is predictable before the game.
+
 ## Data leakage rules
 
 Found while exploring the API; the feature code enforces them:
