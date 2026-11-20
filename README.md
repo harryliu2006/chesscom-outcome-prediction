@@ -280,6 +280,64 @@ Committed before the test set is scored, so the comparison can't be tuned to it.
 5. **Reported as is:** whatever the test result, including if the form features or the trees
    do not help.
 
+## Test results
+
+```bash
+.venv/bin/python -m src.evaluate
+```
+
+Run once, as planned: every model refitted on all 40 training events and scored on the 6
+held-out events (Oct 13 – Nov 17, 12,144 games). Results in `results/test_results.json`.
+
+| Model | Log loss (95% CI) | Brier | Accuracy |
+|---|---|---|---|
+| Elo formula | 0.8429 (0.825–0.861) | 0.4666 | 68.7% |
+| Logistic regression, `rating_diff` only | 0.7881 (0.776–0.801) | 0.4568 | 68.8% |
+| Logistic regression, 5 features | 0.7851 (0.773–0.797) | 0.4559 | 68.7% |
+| **Boosted trees, 5 features** | **0.7827** (0.770–0.795) | **0.4549** | 68.8% |
+
+Test scores match the CV scores within 0.001–0.002 for every model: no sign of overfitting
+to the folds or of drift between Jan–Sep and Oct–Nov.
+
+**Paired differences** (same 1,000 bootstrap resamples for every model):
+
+| Comparison | Log loss difference (95% CI) | Better in |
+|---|---|---|
+| Rating-only regression vs Elo formula | −0.0547 (−0.066 to −0.044) | 100% of resamples |
+| 5 features vs rating only (both regressions) | −0.0031 (−0.0046 to −0.0015) | 100% |
+| Trees vs regression (both 5 features) | −0.0024 (−0.0037 to −0.0011) | 100% |
+| **Trees (5 features) vs rating-only regression** | **−0.0055 (−0.0074 to −0.0036)** | 100% |
+
+Every interval excludes 0. The trees' gain over the regression, uncertain on CV (3/5
+folds), holds on the test set.
+
+**Per outcome** (boosted trees; `results/test_calibration.png`):
+
+| | White wins | Draw | Black wins |
+|---|---|---|---|
+| Actual rate | 48.2% | 8.6% | 43.2% |
+| Mean predicted | 48.5% | 8.7% | 42.8% |
+| AUC (one outcome vs the rest) | 0.775 | 0.600 (Elo: 0.512) | 0.779 |
+| Predicted as most likely | 6,156 games | 0 | 5,988 games |
+
+**Honest view of model quality:**
+- **Rating does almost all the work.** Fitting the rating difference properly (instead of
+  the textbook Elo curve) gives 90% of the total improvement over Elo. The form features and
+  the trees together add another 0.0055 log loss: real, but small.
+- **The probabilities are well calibrated.** Both 5-feature models sit on the diagonal for
+  all three outcomes; Elo is too confident at both ends.
+- **Accuracy does not move (68.7–68.8%)** and no model ever predicts a draw as the most
+  likely result: even the most drawish pairings top out at about 15% draw probability.
+  The gain is in *how sure* the model is, which is what log loss and Brier reward.
+- **Draws are only weakly predictable** (AUC 0.60). Elo cannot rank draws at all (0.51);
+  our features (rating level, the two players' draw rates) recover some of that signal.
+- The 31% of games the model "gets wrong" are the 8.6% draws (never the most likely result)
+  plus about 22.6% upsets, where the side the model favoured lost. Information available
+  before a blitz game cannot remove that.
+- **Caveats:** games in one event share players, so the intervals are somewhat too narrow;
+  all games are between strong titled players at 5+0, so the model is not validated on
+  casual games; Magnus Carlsen's `games_30d` is undercounted (129 games).
+
 ## Data leakage rules
 
 Found while exploring the API; the feature code enforces them:
