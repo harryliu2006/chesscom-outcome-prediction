@@ -84,9 +84,9 @@ purpose; one shared preprocessing pipeline fitted on training data only.
 
 ## Time breakdown
 
-I worked on this in between classes and other commitments, from the first commit (Nov 19,
-afternoon) to the last (Nov 20, early morning), so the elapsed time in the git history is
-much longer than the time actually spent on it.
+About 4–5 hours of actual work in total. I worked on it in between classes and other
+commitments, from the first commit (Nov 19, afternoon) to the last (Nov 20, early
+morning), so the git history spans a longer stretch than the time spent.
 
 The split between parts, in order of effort:
 1. **API exploration, collector and data collection at scale**: the largest share. The API
