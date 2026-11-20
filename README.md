@@ -10,7 +10,19 @@ standings or prize situation. Caveat: all training and test games are between st
 players at 5+0 in a Swiss event, so results hold for that population; casual games would
 need casual training data.
 
-## Setup
+**Submission notes** (decisions, model quality, next steps, time breakdown):
+[SUBMISSION.md](SUBMISSION.md).
+
+## Quick start
+
+```bash
+./run.sh
+```
+
+Creates the virtual environment, installs `requirements.txt`, then runs every step below in
+order. The first run downloads from the API (about 10 minutes); later runs use the cache.
+
+## Setup (manual)
 
 ```bash
 python3 -m venv .venv
