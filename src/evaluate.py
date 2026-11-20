@@ -1,4 +1,4 @@
-"""Final evaluation on the held-out test events, run once (README "Evaluation plan").
+"""Final evaluation on the held-out test events, run once (REPORT.md "Evaluation plan").
 
 Each model is refitted on all training events with the settings chosen on CV
 (results/model_cv.json) and scored on the test events. Writes:

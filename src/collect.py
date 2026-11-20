@@ -17,7 +17,7 @@ Steps
                  snapshots*; flagged as such in players.csv).
   5. build     - write tidy CSVs to data/processed/.
 
-Leakage notes (see README): game ratings in the API are POST-game; group
+Leakage notes (see REPORT.md): game ratings in the API are POST-game; group
 ``players[].points`` is the FINAL tournament score; neither is written to the
 processed tables as a feature. Nothing here computes features - that happens in
 src/features.py with explicit as-of cutoffs.
