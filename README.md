@@ -142,6 +142,38 @@ ignores. Draws are 14–15% between evenly matched players and 5–6% in lopside
 the baseline uses one draw rate. Few games are evenly matched: the Swiss system pairs the
 top half against the bottom half early on. These are the patterns a trained model can learn.
 
+## Rating-only model
+
+```bash
+.venv/bin/python -m src.models
+```
+
+Multinomial logistic regression on rating features only (`src/models.py`), same 5 CV
+folds (results in `results/rating_lr_cv.json`):
+
+| Model | Inputs | Log loss | Brier | Accuracy |
+|---|---|---|---|---|
+| Elo formula | – | 0.860 | 0.479 | 67.5% |
+| Logistic regression | `rating_diff` | 0.797 | 0.465 | 67.5% |
+| Logistic regression | + `abs(rating_diff)` | 0.797 | 0.465 | 67.5% |
+| **Logistic regression (chosen)** | **`rating_diff`, `rating_mean`** | **0.795** | **0.465** | **67.5%** |
+
+- **Learning from ratings beats the Elo formula by 0.065 log loss**, in every fold
+  (−0.051 to −0.087). It fixes Elo's overconfidence: per rating point the fitted model
+  moves the odds about 3/4 as much as Elo does, and it learns White's first-move advantage,
+  worth about 36 rating points.
+- **`abs(rating_diff)` is not needed.** With three classes, the draw probability already peaks
+  for evenly matched players, because the win and loss probabilities pull in opposite
+  directions as the rating gap grows.
+- **`rating_mean` helps a little, in every fold** (about −0.0017): draws are more common between
+  stronger players.
+- **Accuracy doesn't move** (67.5%): the model still picks the higher-rated player, so the
+  same games are "right". The gain is in the probabilities. That's why log loss is the main
+  metric.
+- Calibration on the validation folds is close: e.g. where Elo says 0.07 for White, the
+  model says 0.15 and White actually scores 0.17; where Elo says 0.93, the model says 0.88
+  and White scores 0.87.
+
 ## Data leakage rules
 
 Found while exploring the API; the feature code enforces them:
