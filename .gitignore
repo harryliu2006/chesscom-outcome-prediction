@@ -7,3 +7,6 @@ __pycache__/
 data/
 data/raw/
 logs/
+
+# Raw session logs: contain app metadata, kept local only
+transcripts/*.jsonl
