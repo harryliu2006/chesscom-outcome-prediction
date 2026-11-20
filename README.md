@@ -1,7 +1,14 @@
 # Chess.com Titled Tuesday — Game Outcome Prediction
 
-Predict the outcome of a Titled Tuesday blitz game (white win / draw / black win) using only
+Predict the outcome of a blitz chess game (white win / draw / black win) using only
 information available **before the game starts**, built on Chess.com's Published Data API.
+
+**Scope:** this is a general game predictor. Titled Tuesday is only the data source, as the
+brief says ("collect your dataset from recent Titled Tuesday tournaments"). So the features
+describe the two players (rating and recent form), never the tournament: no round number,
+standings or prize situation. Caveat: all training and test games are between strong titled
+players at 5+0 in a Swiss event, so results hold for that population; casual games would
+need casual training data.
 
 ## Setup
 
@@ -40,8 +47,7 @@ and every known game lands in its own round. All six passed: 1,146 games recover
 `source = archive_rebuild` in `games.csv`; details in `rebuilt_rounds.json`.
 
 **2026 collection result:** 46 events (every Tuesday from Jan 6 to Nov 17), 90,795 games,
-2,768 players. Outcomes: 48.5% White wins, 8.5% draws, 42.9% Black wins. 99.1% of
-round-1 player entries have a blitz game before the event to take a pre-game rating from.
+2,768 players. Outcomes: 48.5% White wins, 8.5% draws, 42.9% Black wins.
 
 **Outputs (`data/processed/`):**
 
@@ -54,6 +60,49 @@ round-1 player entries have a blitz game before the event to take a pre-game rat
 | `excluded_events.json` | Candidate events skipped and why |
 | `rebuilt_rounds.json` | Rounds rebuilt from archives, with consistency checks |
 
+## Features
+
+```bash
+.venv/bin/python -m src.features
+```
+
+Writes `data/processed/features.csv` (one row per game, about 6 s) and
+`features_report.json` (dropped games, missing values, leakage checks).
+
+**As-of rule:** every feature uses only the player's rated blitz games that **ended before
+this game started**. Earlier rounds of the same event count like any other recent game.
+
+| Group | Features |
+|---|---|
+| Rating | `white_rating_pre`, `black_rating_pre`, `rating_diff` (White − Black), `rating_mean`, `elo_expected` = 1 / (1 + 10^(−diff/400)) |
+| Recent form, 30 days before the game, per player and White − Black (`diff_`) | `games_30d`, `score_vs_expected_30d` (mean actual − Elo-expected score), `rating_change_30d`, `draw_rate_30d`, `days_since_last_game` |
+| Label | `outcome` ∈ {white, draw, black} |
+
+`event_id`, `round`, `game_url`, `start_time`, `white`, `black` are kept as keys for the
+split and for tracing rows, not as features.
+
+**Pre-game ratings for opponents in history games:** archive ratings are post-game, so in
+`score_vs_expected` the player's pre-game rating is their previous game's rating and the
+opponent's is their post-game rating with the same change undone (rating changes are
+close to symmetric).
+
+**Hidden archives:** the API returns 404 for `magnuscarlsen`'s game archive. His games are
+still in his opponents' archives, so his history is rebuilt from their side
+(`*_history_from_opponents = True`, 129 games). His rating is exact; his form covers only
+games against other participants (`games_30d` too low, `draw_rate_30d` skewed towards
+titled opponents). `penguin_cm1` is a closed account that appears in no archive; its 73
+games are dropped.
+
+**Checks** (`features_report.json`, the build fails if they don't pass):
+- 320 sampled games (20 of them Magnus's) recomputed with a plain "ended before start"
+  filter: 0 mismatches.
+- A game never appears in its own features (every game ends after it starts).
+- Rounds 2–11: 99.8% of pre-game ratings equal the previous round's post-game rating; the
+  rest played another blitz game in between.
+- No post-game rating column in the table.
+
+**Result:** 90,495 of 90,795 games (300 dropped, 0.33%).
+
 ## Data leakage rules
 
 Found while exploring the API; the feature code enforces them:
@@ -63,17 +112,17 @@ Found while exploring the API; the feature code enforces them:
   Pre-game rating = rating after the player's previous game (previous round; for round 1,
   the last blitz game before the event in their archive).
 - **Group `players[].points` is the final tournament score**, not the score going into a round.
-  Running scores are computed from earlier rounds only.
+  It is dropped at collection time (tournament standings are not features anyway).
 - **Profile fields are current snapshots** (`title`, `status`, `is_streamer`, `verified`,
   `followers`, `last_online`, `league`). An IM who became a GM in November shows as GM for
   January. Excluded from the main model; `title` is tested only as an ablation. `country` and
   `joined` don't change.
 - **`/player/{u}/stats` is not used**: it holds today's ratings and lifetime records.
 - **Nothing produced during the game** is a feature: moves, FEN, ECO opening, termination, end time.
-- **Archive-based features use a cutoff at the event's start time**; within-event features use rounds before *r* only.
+- **Every feature uses a cutoff at the game's start time**: only games that ended before it.
 - **Player usernames are not a feature**; rating already captures player strength.
-- **Round-1 games without a pre-game rating are dropped** (165 of 8,918 round-1 games, 0.18%
-  of all games). In these games one player has no blitz game in the 6 months before the
-  event: they were inactive, played only bullet/rapid, had a new account, or their archive
-  is hidden by the API. The post-round-1 rating cannot stand in, because it contains the result.
+- **Games without a pre-game rating are dropped, not imputed** (300 games, 0.33%). 227 have a
+  player with no earlier rated blitz game in our archives (inactive, bullet/rapid only, new
+  account, or their first game of the event came after a bye); 73 involve the closed account
+  `penguin_cm1`. The player's next post-game rating cannot stand in: it contains the result.
 - **Train/test split is by event, in time order** (no random split across rounds of one event).
