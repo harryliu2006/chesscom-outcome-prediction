@@ -328,45 +328,6 @@ def plot_residuals(oof):
     save(fig, "6_residuals.png")
 
 
-def plot_games_check(oof):
-    """diff_games_30d against the target: raw, and after accounting for rating_diff
-    (residual of the rating_diff-only model), within rating-difference bands."""
-    act = white_score(oof)
-    res = act - (oof["p_white"] + 0.5 * oof["p_draw"])
-    labels = ["W far\nfewer", "", "similar", "", "W far\nmore"]
-    qx = pd.qcut(oof["diff_games_30d"].rank(method="first"), 5, labels=False)
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(13, 4.4))
-    raw = act.groupby(qx).mean()
-    dif = oof["rating_diff"].groupby(qx).mean()
-    a1.plot(range(5), raw, color=BLUE, marker="o", ms=6)
-    for i in range(5):
-        a1.annotate(f"avg rating diff {dif[i]:+.0f}", (i, raw[i]), textcoords="offset points",
-                    xytext=(0, 9), ha="center", fontsize=8, color=INK2)
-    a1.set_xticks(range(5), labels)
-    a1.set_ylim(0.45, 0.6)
-    a1.set_ylabel("White's actual score")
-    a1.set_xlabel("diff_games_30d quintile (White − Black games in last 30 days)")
-    a1.set_title("Raw: the more active player is also the higher-rated one")
-    bands = [("White underdog (diff < −100)", oof["rating_diff"] < -100, "#e34948"),
-             ("Close (−100 to 100)", oof["rating_diff"].abs() <= 100, MUTED),
-             ("White favourite (diff > 100)", oof["rating_diff"] > 100, BLUE)]
-    a2.axhline(0, color=AXIS, lw=1)
-    for k, (name, mask, col) in enumerate(bands):
-        d_res, d_g = res[mask], oof.loc[mask, "diff_games_30d"]
-        q = pd.qcut(d_g.rank(method="first"), 5, labels=False)
-        s = d_res.groupby(q).agg(["mean", "std", "size"])
-        x = np.arange(5) + (k - 1) * 0.08
-        a2.errorbar(x, s["mean"], yerr=1.96 * s["std"] / np.sqrt(s["size"]), color=col, marker="o",
-                    ms=5, capsize=0, label=f"{name}, n={mask.sum():,}")
-    a2.set_xticks(range(5), labels)
-    a2.set_ylabel("White's score residual\n(actual − rating_diff model)")
-    a2.set_xlabel("diff_games_30d quintile within each band")
-    a2.set_title("After rating: the more active player scores below prediction")
-    a2.legend(loc="lower left", fontsize=8)
-    fig.tight_layout()
-    save(fig, "7_games_30d_check.png")
-
-
 def main():
     OUT.mkdir(parents=True, exist_ok=True)
     train, _test = train_test(load())
@@ -378,7 +339,6 @@ def main():
     corr = plot_corr(tr)
     summ, combos, base_ll, oof = incremental_signal(tr)
     plot_residuals(oof)
-    plot_games_check(oof)
     out = {"train_games": len(tr), "cv_log_loss_rating_diff_only": round(base_ll, 5),
            "single_feature_added": summ.round(5).reset_index().to_dict("records"),
            "combinations": combos.to_dict("records"),

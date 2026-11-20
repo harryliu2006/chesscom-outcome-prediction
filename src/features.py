@@ -37,12 +37,6 @@ FORM_STATS = ["games_30d", "score_vs_expected_30d", "rating_change_30d", "draw_r
 FORM_FEATURES = ([f"{side}_{s}" for side in ("white", "black") for s in FORM_STATS]
                  + [f"diff_{s}" for s in FORM_STATS])
 FEATURES = RATING_FEATURES + FORM_FEATURES
-
-# Final model inputs, chosen on the training folds (README "Feature selection"). Dropped:
-# elo_expected (same ordering as rating_diff), white/black_rating_pre (= rating_mean
-# +/- rating_diff/2), rating_change_30d and score_vs_expected_30d (no consistent gain).
-MODEL_FEATURES = ["rating_diff", "rating_mean", "diff_games_30d",
-                  "white_draw_rate_30d", "black_draw_rate_30d"]
 # not features: marks rows whose player history was rebuilt from opponents' archives
 FLAGS = ["white_history_from_opponents", "black_history_from_opponents"]
 
