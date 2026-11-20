@@ -1,0 +1,135 @@
+{
+ "cv_log_loss_rating_diff_only": 0.7888641512529195,
+ "subsets": [
+  {
+   "added_to_rating_diff": "rating_mean + diff_games_30d + draw_rates",
+   "cv_log_loss": 0.785179,
+   "gain_vs_rating_diff": 0.003685,
+   "folds_better": 5
+  },
+  {
+   "added_to_rating_diff": "diff_games_30d + draw_rates",
+   "cv_log_loss": 0.785989,
+   "gain_vs_rating_diff": 0.002875,
+   "folds_better": 5
+  },
+  {
+   "added_to_rating_diff": "rating_mean + diff_games_30d",
+   "cv_log_loss": 0.786152,
+   "gain_vs_rating_diff": 0.002712,
+   "folds_better": 5
+  },
+  {
+   "added_to_rating_diff": "rating_mean + draw_rates",
+   "cv_log_loss": 0.786454,
+   "gain_vs_rating_diff": 0.00241,
+   "folds_better": 5
+  },
+  {
+   "added_to_rating_diff": "draw_rates",
+   "cv_log_loss": 0.787269,
+   "gain_vs_rating_diff": 0.001595,
+   "folds_better": 5
+  },
+  {
+   "added_to_rating_diff": "rating_mean",
+   "cv_log_loss": 0.787439,
+   "gain_vs_rating_diff": 0.001425,
+   "folds_better": 5
+  },
+  {
+   "added_to_rating_diff": "diff_games_30d",
+   "cv_log_loss": 0.787573,
+   "gain_vs_rating_diff": 0.001292,
+   "folds_better": 5
+  },
+  {
+   "added_to_rating_diff": "(nothing)",
+   "cv_log_loss": 0.788864,
+   "gain_vs_rating_diff": 0.0,
+   "folds_better": 0
+  }
+ ],
+ "drop_one": [
+  {
+   "dropped": "rating_mean",
+   "cv_log_loss": 0.785989,
+   "loss_increase": 0.00081,
+   "folds_worse": 5,
+   "gain_alone": 0.001425,
+   "share_of_gain_kept_in_full_model": 0.568655
+  },
+  {
+   "dropped": "diff_games_30d",
+   "cv_log_loss": 0.786454,
+   "loss_increase": 0.001275,
+   "folds_worse": 5,
+   "gain_alone": 0.001292,
+   "share_of_gain_kept_in_full_model": 0.987052
+  },
+  {
+   "dropped": "draw_rates",
+   "cv_log_loss": 0.786152,
+   "loss_increase": 0.000973,
+   "folds_worse": 5,
+   "gain_alone": 0.001595,
+   "share_of_gain_kept_in_full_model": 0.610007
+  }
+ ],
+ "overlap": {
+  "sum_of_individual_gains": 0.004311364493860381,
+  "joint_gain": 0.0036852877708146714,
+  "pairs": [
+   {
+    "pair": "rating_mean & diff_games_30d",
+    "gain_a": 0.001425,
+    "gain_b": 0.001292,
+    "gain_together": 0.002712,
+    "overlap": 4e-06,
+    "overlap_share": 0.001488
+   },
+   {
+    "pair": "rating_mean & draw_rates",
+    "gain_a": 0.001425,
+    "gain_b": 0.001595,
+    "gain_together": 0.00241,
+    "overlap": 0.000609,
+    "overlap_share": 0.201789
+   },
+   {
+    "pair": "diff_games_30d & draw_rates",
+    "gain_a": 0.001292,
+    "gain_b": 0.001595,
+    "gain_together": 0.002875,
+    "overlap": 1.2e-05,
+    "overlap_share": 0.003988
+   }
+  ]
+ },
+ "spearman": {
+  "rating_mean": {
+   "rating_mean": 1.0,
+   "diff_games_30d": -0.0013,
+   "white_draw_rate_30d": 0.258,
+   "black_draw_rate_30d": 0.2588
+  },
+  "diff_games_30d": {
+   "rating_mean": -0.0013,
+   "diff_games_30d": 1.0,
+   "white_draw_rate_30d": 0.1043,
+   "black_draw_rate_30d": -0.1062
+  },
+  "white_draw_rate_30d": {
+   "rating_mean": 0.258,
+   "diff_games_30d": 0.1043,
+   "white_draw_rate_30d": 1.0,
+   "black_draw_rate_30d": 0.0849
+  },
+  "black_draw_rate_30d": {
+   "rating_mean": 0.2588,
+   "diff_games_30d": -0.1062,
+   "white_draw_rate_30d": 0.0849,
+   "black_draw_rate_30d": 1.0
+  }
+ }
+}
