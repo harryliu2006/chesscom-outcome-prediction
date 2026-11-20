@@ -320,8 +320,12 @@ to the folds or of drift between Jan–Sep and Oct–Nov.
 | Trees vs regression (both 5 features) | −0.0024 (−0.0037 to −0.0011) | 100% |
 | **Trees (5 features) vs rating-only regression** | **−0.0055 (−0.0074 to −0.0036)** | 100% |
 
-Every interval excludes 0. The trees' gain over the regression, uncertain on CV (3/5
-folds), holds on the test set.
+Every interval excludes 0, but these intervals treat games as independent. Games in one
+event share players and the test set has only 6 events, so the intervals are too narrow.
+The regression's gain over Elo (0.055) is large enough to survive that. The smaller gains
+are not firmly established: the form features also beat rating alone on 5/5 CV folds, so
+that gain looks consistent; the trees beat the regression on only 3/5 CV folds, so the two
+are best treated as about equal.
 
 **Per outcome** (boosted trees; `results/test_calibration.png`):
 
@@ -335,7 +339,8 @@ folds), holds on the test set.
 **Honest view of model quality:**
 - **Rating does almost all the work.** Fitting the rating difference properly (instead of
   the textbook Elo curve) gives 90% of the total improvement over Elo. The form features and
-  the trees together add another 0.0055 log loss: real, but small.
+  the trees together add another 0.0055 log loss: small, and not firmly established (see
+  the clustering caveat above).
 - **The probabilities are well calibrated.** Both 5-feature models sit on the diagonal for
   all three outcomes; Elo is too confident at both ends.
 - **Accuracy does not move (68.7–68.8%)** and no model ever predicts a draw as the most

@@ -59,16 +59,19 @@ purpose; one shared preprocessing pipeline fitted on training data only.
 | Logistic regression, 5 features | 0.785 | 68.7% |
 | Boosted trees, 5 features | **0.783** | 68.8% |
 
-- Every paired difference is significant (bootstrap 95% intervals exclude 0), and test
-  scores match cross-validation within 0.002.
+- Test scores match cross-validation within 0.002.
 - **Rating does most of the work.** Fitting the rating difference to the data instead of
-  using the Elo curve gives about 90% of the gain; recent form and the trees add a small,
-  real improvement (0.0055 log loss).
+  using the Elo curve gives about 90% of the gain (0.055 log loss), a clear margin. Recent
+  form and the trees add a further 0.0055. The form features beat rating alone on 5/5 CV
+  folds, so that gain looks consistent; the trees beat the regression on only 3/5 folds, so
+  I treat the two as about equal.
+- The bootstrap intervals for every paired difference exclude 0, but they resample single
+  games. Games in one event share players and there are only 6 test events, so the
+  intervals are too narrow: the 0.002–0.003 gains are suggestive, not established.
 - The probabilities are well calibrated; Elo is overconfident at large rating gaps.
 - Accuracy does not move, and no model ever predicts a draw: even the most drawish
   pairings reach only ~15%. Draws are weakly predictable (AUC 0.60).
-- Limitations: games within an event share players, so the intervals are somewhat too
-  narrow; all games are between titled players at 5+0; new accounts have provisional
+- Limitations: all games are between titled players at 5+0; new accounts have provisional
   ratings that understate the player; Magnus Carlsen's archive is hidden by the API, so
   his activity is undercounted.
 
