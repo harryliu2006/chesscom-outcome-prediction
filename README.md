@@ -196,6 +196,7 @@ Training events only (76,493 games); the test events stay unseen. Plots in `resu
 | `4_form_distributions.png` | `games_30d` is heavy-tailed (median 75, up to 2,900): used on a log scale. `rating_change_30d` is right-skewed (fast risers: new accounts). `draw_rate_30d` has a spike at 0 (players with few games). |
 | `5_correlations.png` | Redundant pairs: `elo_expected` is a monotone transform of `rating_diff` (rank correlation 1.00); `white/black_rating_pre` are `rating_mean` ± `rating_diff`/2; `score_vs_expected_30d` and `rating_change_30d` correlate 0.83 per player. Form features are only weakly related to rating (|ρ| ≤ 0.3). |
 | `6_residuals.png` | Residuals of a `rating_diff`-only model against other features (see below). |
+| `7_games_30d_check.png` | `diff_games_30d` raw vs after rating. Raw, the more active White scores *more* (they are usually the higher-rated player). After accounting for rating, they score about 0.03 *below* prediction, in every rating band, and still after excluding new accounts, players with < 10 recent games and Magnus. |
 
 **Does anything add signal beyond `rating_diff`?** Two checks, both out of sample:
 1. **Residual plots:** fit a model on `rating_diff` alone, then plot what it gets wrong (actual
