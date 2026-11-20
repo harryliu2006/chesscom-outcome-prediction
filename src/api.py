@@ -48,17 +48,20 @@ class ChessComClient:
         path = urlparse(url).path.strip("/")
         return self.cache_dir / f"{path}.json"
 
-    def get(self, url_or_path: str, transform=None, cache_path: Path | None = None) -> dict | None:
+    def get(self, url_or_path: str, transform=None, cache_path: Path | None = None,
+            retry_missing: bool = False) -> dict | None:
         """Return parsed JSON, or None if the resource does not exist (404/410).
 
         ``transform`` shrinks a response before it is cached (e.g. drop move text);
         the cache then only ever holds the transformed version. ``cache_path``
-        overrides where it is stored."""
+        overrides where it is stored. ``retry_missing`` re-requests a cached 404: some
+        archive months listed in a player's archive index 404 only temporarily."""
         url = url_or_path if url_or_path.startswith("http") else f"{BASE}/{url_or_path.lstrip('/')}"
         cp = cache_path or self._cache_path(url)
         if cp.exists():
             data = json.loads(cp.read_text())
-            return None if data == MISSING else data
+            if not (retry_missing and data == MISSING):
+                return None if data == MISSING else data
         raw_cp = self._cache_path(url)
         if transform and raw_cp != cp and raw_cp.exists():
             # an older run cached the full response: convert it and free the space

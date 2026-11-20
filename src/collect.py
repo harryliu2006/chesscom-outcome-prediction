@@ -96,11 +96,21 @@ def game_start(g: dict) -> int | None:
     return utc_ts(pgn_header(pgn, "UTCDate"), pgn_header(pgn, "UTCTime"))
 
 
+def count_plies(pgn: str) -> int:
+    """Half-moves played, from the move text (headers, clock comments, move numbers and
+    the result token removed). Used only to filter out forfeits / no-shows."""
+    body = re.sub(r"^\[.*\]\s*$", " ", pgn, flags=re.M)
+    body = re.sub(r"\{[^}]*\}", " ", body)
+    body = re.sub(r"\d+\.(\.\.)?", " ", body)
+    return sum(t not in ("1-0", "0-1", "1/2-1/2", "*") for t in body.split())
+
+
 def compact_game(g: dict) -> dict:
     side = lambda s: {k: s.get(k) for k in ("username", "rating", "result", "uuid")}
     return {"url": g.get("url"), "start_time": game_start(g), "end_time": g.get("end_time"),
             "time_control": g.get("time_control"), "time_class": g.get("time_class"),
             "rules": g.get("rules"), "rated": g.get("rated"), "tournament": g.get("tournament"),
+            "plies": count_plies(g["pgn"]) if "pgn" in g else g.get("plies"),
             "white": side(g["white"]), "black": side(g["black"])}
 
 
@@ -112,19 +122,29 @@ def compact_archive(data: dict) -> dict:
 
 def compact_group(data: dict) -> dict:
     """Keep the games without moves; drop players[].points (final score = leakage)."""
-    return {"games": [compact_game(g) for g in data.get("games", [])], "compact": True}
+    return {"games": [compact_game(g) for g in data.get("games", [])], "compact": COMPACT_VERSION}
+
+
+COMPACT_VERSION = 2  # v2 adds the move count ("plies")
 
 
 def compact_cached_groups() -> None:
-    """One-off: strip move text from tournament groups cached by earlier runs."""
-    n = 0
+    """Bring tournament groups cached by earlier runs to the current compact format:
+    raw ones are compacted; v1 ones (no move count, moves already discarded) are
+    deleted so they are re-fetched."""
+    n_compacted = n_stale = 0
     for f in (ROOT / "data" / "raw" / "api" / "pub" / "tournament").glob("*/*/*.json"):
         d = json.loads(f.read_text())
-        if "games" in d and not d.get("compact"):
+        if "games" not in d or d.get("compact") == COMPACT_VERSION:
+            continue
+        if d.get("compact"):
+            f.unlink()
+            n_stale += 1
+        else:
             f.write_text(json.dumps(compact_group(d)))
-            n += 1
-    if n:
-        log(f"compacted {n} cached tournament group files")
+            n_compacted += 1
+    if n_compacted or n_stale:
+        log(f"tournament group cache: {n_compacted} compacted, {n_stale} outdated (re-fetched)")
 
 
 def event_id(url: str) -> str:
@@ -311,7 +331,8 @@ def fetch_archives(client: ChessComClient, player_events: dict[str, list[int]],
                 if ym in available:
                     j = safe_get(client, f"player/{u}/games/{ym[0]}/{ym[1]:02d}", f"archive {u} {ym}",
                                  transform=compact_archive,
-                                 cache_path=ARCHIVE_DIR / u / f"{ym[0]}-{ym[1]:02d}.json")
+                                 cache_path=ARCHIVE_DIR / u / f"{ym[0]}-{ym[1]:02d}.json",
+                                 retry_missing=True)
                     fetched[ym] = archive_rows(u, j or {})
                     for g in (j or {}).get("games", []):
                         if g.get("tournament") and event_id(g["tournament"]) in event_ids:
@@ -420,6 +441,7 @@ def games_table(games: dict[str, list[dict]]) -> pd.DataFrame:
                 "outcome": {1.0: "white", 0.5: "draw", 0.0: "black"}[ws],
                 "start_time": game_start(g),
                 "end_time": g.get("end_time"),
+                "plies": g.get("plies"),  # half-moves played (5 moves = 10 plies)
                 "time_control": g.get("time_control"),
                 "rated": g.get("rated"),
                 "source": g.get("_source", "tournament"),

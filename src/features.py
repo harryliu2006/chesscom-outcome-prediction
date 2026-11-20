@@ -24,6 +24,8 @@ import pandas as pd
 ROOT = Path(__file__).resolve().parents[1]
 PROCESSED = ROOT / "data" / "processed"
 FORM_WINDOW_DAYS = 30
+MAX_FORFEIT_PLIES = 10     # 5 moves each; games this short are dropped as forfeits
+MAX_FORFEIT_SECONDS = 10
 DAY = 86_400
 
 KEYS = ["event_id", "round", "game_url", "start_time", "white", "black"]  # not features
@@ -105,28 +107,65 @@ class History:
         return out
 
 
+def load_games() -> pd.DataFrame:
+    """games.csv with renamed accounts merged. A player who renamed appears under the old
+    name in older tournament games but under the new name in every archive; the account
+    uuid (same for both names) links them. E.g. penguin_cm1 -> llawlietcanon."""
+    games = pd.read_csv(PROCESSED / "games.csv")
+    with_history = set(pd.read_csv(PROCESSED / "player_history.csv", usecols=["username"])["username"])
+    long = pd.concat([games[[s, f"{s}_uuid"]].set_axis(["name", "uuid"], axis=1) for s in ("white", "black")])
+    names = long.drop_duplicates().groupby("uuid")["name"].apply(set)
+    alias = {}
+    for ns in names:
+        target = [n for n in ns if n in with_history]
+        if len(ns) > 1 and len(target) == 1:
+            alias.update({n: target[0] for n in ns if n != target[0]})
+    for s in ("white", "black"):
+        games[s] = games[s].replace(alias)
+    games.attrs["aliases"] = alias
+    return games
+
+
+def short_game_mask(games: pd.DataFrame) -> pd.Series:
+    """Forfeits / no-shows: games over within MAX_FORFEIT_PLIES half-moves or
+    MAX_FORFEIT_SECONDS. Their result says nothing about chess strength."""
+    return (games["plies"] <= MAX_FORFEIT_PLIES) | (games["end_time"] - games["start_time"] <= MAX_FORFEIT_SECONDS)
+
+
 def load_history(games: pd.DataFrame) -> tuple[pd.DataFrame, set[str]]:
-    """Player history, plus a reconstructed history for participants whose own archive
-    the API hides (e.g. magnuscarlsen returns 404). Their games still appear in their
-    opponents' archives, so those rows are added again from the hidden player's side.
-    Their rating is exact; their form only covers games against other participants.
-    A closed account (penguin_cm1) appears in nobody's archive and stays without history."""
+    """Player history from each participant's own archive, with gaps filled from their
+    opponents' archives: every game between two participants is added again from the
+    other side, and kept only where the player's own archive lacks it. This covers
+    archive months the API 404s on, and players whose whole archive is hidden
+    (magnuscarlsen: rating exact, form limited to games against other participants).
+    Returns the history and the players with no own archive at all."""
     hist = pd.read_csv(PROCESSED / "player_history.csv",
                        usecols=["username", "opponent", "end_time", "game_url", "rating_post",
                                 "opponent_rating_post", "score", "rated"])
+    hist["opponent"] = hist["opponent"].str.lower()
     participants = set(games["white"]) | set(games["black"])
-    hidden = participants - set(hist["username"])
-    m = hist[hist["opponent"].str.lower().isin(hidden)]
-    mirror = pd.DataFrame({"username": m["opponent"].str.lower(), "opponent": m["username"],
+    own = set(hist["username"])
+    m = hist[hist["opponent"].isin(participants)]
+    mirror = pd.DataFrame({"username": m["opponent"], "opponent": m["username"],
                            "end_time": m["end_time"], "game_url": m["game_url"],
                            "rating_post": m["opponent_rating_post"],
                            "opponent_rating_post": m["rating_post"],
                            "score": 1 - m["score"], "rated": m["rated"]})
-    return pd.concat([hist, mirror], ignore_index=True), set(mirror["username"])
+    full = (pd.concat([hist, mirror], ignore_index=True)
+            .drop_duplicates(["username", "game_url"], keep="first"))  # own archive wins
+    full.attrs["rows_from_opponents"] = len(full) - len(hist)
+    return full, set(mirror["username"]) - own
 
 
 def build() -> tuple[pd.DataFrame, dict]:
-    games = pd.read_csv(PROCESSED / "games.csv")
+    games = load_games()
+    short = short_game_mask(games)
+    short_report = {"games": int(short.sum()),
+                    "by_result": {f"{w}/{b}": int(n) for (w, b), n in games.loc[short].groupby(["white_result_code", "black_result_code"])
+                    .size().sort_values(ascending=False).items()},
+                    "plies_0_white_never_moved": int((games.loc[short, "plies"] == 0).sum()),
+                    "plies_1_black_never_moved": int((games.loc[short, "plies"] == 1).sum())}
+    games = games[~short].reset_index(drop=True)
     hist, from_opponents = load_history(games)
     H = History(hist)
 
@@ -141,7 +180,10 @@ def build() -> tuple[pd.DataFrame, dict]:
 
     missing = df["white_rating_pre"].isna() | df["black_rating_pre"].isna()
     no_history = sorted((set(games["white"]) | set(games["black"])) - set(hist["username"]))
-    report = {"games_in": len(df),
+    report = {"games_in": len(df) + short_report["games"],
+              "dropped_forfeits": short_report,
+              "renamed_accounts_merged": games.attrs.get("aliases", {}),
+              "history_rows_filled_from_opponents": hist.attrs["rows_from_opponents"],
               "history_from_opponents": sorted(from_opponents),
               "participants_without_any_history": no_history,
               "dropped_no_pre_rating": int(missing.sum()),
@@ -165,9 +207,8 @@ def build() -> tuple[pd.DataFrame, dict]:
 def leakage_checks(df: pd.DataFrame, n_sample: int = 300, seed: int = 0) -> dict:
     """Independent re-computation on a sample of games with plain pandas filters
     (end_time < start_time), compared with the vectorised table."""
-    games = pd.read_csv(PROCESSED / "games.csv", usecols=["game_url", "white", "black", "start_time",
-                                                          "round", "event_id", "white_rating_post",
-                                                          "black_rating_post"])
+    games = load_games()
+    games = games[~short_game_mask(games)]
     hist, _ = load_history(games)
     hist = hist[hist["rated"]].drop_duplicates(["username", "game_url"])
     by_user = dict(tuple(hist.groupby("username")))
@@ -186,7 +227,7 @@ def leakage_checks(df: pd.DataFrame, n_sample: int = 300, seed: int = 0) -> dict
             mism += not ok
 
     # The player's own game must never be inside its features: the game ends after it starts.
-    own = games.merge(hist[["username", "game_url", "end_time"]],
+    own = games[["white", "game_url", "start_time"]].merge(hist[["username", "game_url", "end_time"]],
                       left_on=["white", "game_url"], right_on=["username", "game_url"])
     own_after_start = bool((own["end_time"] > own["start_time"]).all())
 

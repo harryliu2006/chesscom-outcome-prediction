@@ -77,9 +77,10 @@ this game started**. Earlier rounds of the same event count like any other recen
 | Rating | `white_rating_pre`, `black_rating_pre`, `rating_diff` (White − Black), `rating_mean`, `elo_expected` = 1 / (1 + 10^(−diff/400)) |
 | Recent form, 30 days before the game, per player and White − Black (`diff_`) | `games_30d`, `score_vs_expected_30d` (mean actual − Elo-expected score), `rating_change_30d`, `draw_rate_30d` |
 
+| Label | `outcome` ∈ {white, draw, black} |
+
 `days_since_last_game` was considered and dropped: because earlier rounds count as recent
 games, in rounds 2–11 it only measured the few minutes since the previous round.
-| Label | `outcome` ∈ {white, draw, black} |
 
 `event_id`, `round`, `game_url`, `start_time`, `white`, `black` are kept as keys for the
 split and for tracing rows, not as features.
@@ -89,22 +90,57 @@ split and for tracing rows, not as features.
 opponent's is their post-game rating with the same change undone (rating changes are
 close to symmetric).
 
-**Hidden archives:** the API returns 404 for `magnuscarlsen`'s game archive. His games are
-still in his opponents' archives, so his history is rebuilt from their side
-(`*_history_from_opponents = True`, 129 games). His rating is exact; his form covers only
-games against other participants (`games_30d` too low, `draw_rate_30d` skewed towards
-titled opponents). `penguin_cm1` is a closed account that appears in no archive; its 73
-games are dropped.
+**Gaps filled from opponents' archives:** every game between two participants appears in
+both players' archives, so a game missing from a player's own archive is added from the
+opponent's side (97,987 history rows). This covers archive months the API 404s on (5 months
+stay 404 after retrying) and `magnuscarlsen`, whose whole archive returns 404
+(`*_history_from_opponents = True`, 129 games): his rating is exact, but his form covers
+only games against other participants (`games_30d` too low, `draw_rate_30d` skewed towards
+titled opponents).
+
+**Renamed account:** `penguin_cm1` has the same account uuid as `llawlietcanon`; the old
+name appears in older tournament games and the new one in every archive. The two are
+merged (`load_games` in `src/features.py`).
+
+**Forfeits removed:** games of 5 moves or fewer (≤ 10 plies) or 10 seconds or less are
+dropped: 1,955 games (2.2%). 981 are games where White never moved and 924 where Black
+never replied, each lost on time after about 5 minutes: no-shows and disconnects. The rest
+are resignations within 5 moves (118) and 3 agreed draws with no moves. None is a
+checkmate. Their results say nothing about strength. They are removed from the test set
+too, so the model is evaluated on games that were actually played; a deployed model would
+need a separate no-show rate.
 
 **Checks** (`features_report.json`, the build fails if they don't pass):
 - 320 sampled games (20 of them Magnus's) recomputed with a plain "ended before start"
   filter: 0 mismatches.
 - A game never appears in its own features (every game ends after it starts).
-- Rounds 2–11: 99.8% of pre-game ratings equal the previous round's post-game rating; the
+- Rounds 2–11: 99.97% of pre-game ratings equal the previous round's post-game rating; the
   rest played another blitz game in between.
 - No post-game rating column in the table.
 
-**Result:** 90,495 of 90,795 games (300 dropped, 0.33%).
+**Result:** 88,637 of 90,795 games: 1,955 forfeits and 203 games without a pre-game rating
+dropped.
+
+## Data quality audit
+
+```bash
+.venv/bin/python -m src.audit
+```
+
+Writes `results/data_audit.json`. Findings:
+- **Clean:** no missing values or duplicates in `games.csv`; no player twice in a round or
+  pairing repeated in an event; every result code pair consistent with the outcome; all
+  games 5+0, rated, and inside their event's time window; 473,474 games seen from both
+  players' archives, all with mirrored scores and identical ratings; rebuilt rounds have a
+  normal outcome mix.
+- **Fixed:** 14 archive months cached as 404 although listed in the player's archive index
+  (9 downloaded on retry; the client now retries cached 404s for archive months), the
+  renamed account, and forfeits (above).
+- **Outliers kept, to handle in modelling:** 856 player-entries with a pre-game rating
+  below 2,000 and 271 whose rating moved by more than 50 in one game: new accounts with
+  provisional ratings that understate the player. `games_30d` is heavy-tailed (median 77,
+  max 2,914). Extreme `score_vs_expected_30d` values come mostly from players with fewer
+  than 10 recent games.
 
 ## Split and baseline
 
@@ -113,9 +149,9 @@ games are dropped.
 ```
 
 **Split** (`src/split.py`), by whole events in time order:
-- **Test:** the last 6 events, Oct 13 – Nov 17 (12,461 games, 13.8%). Scored once, at the
+- **Test:** the last 6 events, Oct 13 – Nov 17 (12,144 games, 13.7%). Scored once, at the
   end, for the final comparison; nothing is tuned on it.
-- **Train:** the first 40 events (78,034 games). Feature selection and tuning use
+- **Train:** the first 40 events (76,493 games). Feature selection and tuning use
   expanding-window folds: fit on events 1..k, validate on the next 4 (k = 20, 24, …, 36:
   5 folds). Every validation game is later than every game it was fitted on.
 
@@ -127,52 +163,22 @@ Cross-validation results (mean of 5 folds; results in `results/baseline_cv.json`
 
 | Model | Log loss | Brier | Accuracy |
 |---|---|---|---|
-| Class frequencies (floor) | 0.922 | 0.572 | 48.8% |
-| **Elo formula** | **0.860** | **0.479** | **67.5%** |
+| Class frequencies (floor) | 0.925 | 0.573 | 48.8% |
+| **Elo formula** | **0.842** | **0.469** | **68.3%** |
+
+Removing forfeits improved the Elo baseline from 0.860 to 0.842 log loss on its own.
 
 **Elo is overconfident for these players** (training games, binned by E):
 
 | Elo expected score for White | 0.0–0.1 | 0.1–0.2 | 0.2–0.3 | 0.7–0.8 | 0.8–0.9 | 0.9–1.0 |
 |---|---|---|---|---|---|---|
-| White's actual score | 0.165 | 0.255 | 0.346 | 0.706 | 0.788 | 0.878 |
+| White's actual score | 0.154 | 0.248 | 0.339 | 0.716 | 0.797 | 0.885 |
 
-Underdogs score about 0.10 more than Elo predicts and favourites about 0.05–0.06 less; the
+Underdogs score about 0.09 more than Elo predicts and favourites about 0.04–0.05 less; the
 gap is larger for White underdogs, consistent with White's first-move advantage, which Elo
 ignores. Draws are 14–15% between evenly matched players and 5–6% in lopsided games, while
 the baseline uses one draw rate. Few games are evenly matched: the Swiss system pairs the
 top half against the bottom half early on. These are the patterns a trained model can learn.
-
-## Rating-only model
-
-```bash
-.venv/bin/python -m src.models
-```
-
-Multinomial logistic regression on rating features only (`src/models.py`), same 5 CV
-folds (results in `results/rating_lr_cv.json`):
-
-| Model | Inputs | Log loss | Brier | Accuracy |
-|---|---|---|---|---|
-| Elo formula | – | 0.860 | 0.479 | 67.5% |
-| Logistic regression | `rating_diff` | 0.797 | 0.465 | 67.5% |
-| Logistic regression | + `abs(rating_diff)` | 0.797 | 0.465 | 67.5% |
-| **Logistic regression (chosen)** | **`rating_diff`, `rating_mean`** | **0.795** | **0.465** | **67.5%** |
-
-- **Learning from ratings beats the Elo formula by 0.065 log loss**, in every fold
-  (−0.051 to −0.087). It fixes Elo's overconfidence: per rating point the fitted model
-  moves the odds about 3/4 as much as Elo does, and it learns White's first-move advantage,
-  worth about 36 rating points.
-- **`abs(rating_diff)` is not needed.** With three classes, the draw probability already peaks
-  for evenly matched players, because the win and loss probabilities pull in opposite
-  directions as the rating gap grows.
-- **`rating_mean` helps a little, in every fold** (about −0.0017): draws are more common between
-  stronger players.
-- **Accuracy doesn't move** (67.5%): the model still picks the higher-rated player, so the
-  same games are "right". The gain is in the probabilities. That's why log loss is the main
-  metric.
-- Calibration on the validation folds is close: e.g. where Elo says 0.07 for White, the
-  model says 0.15 and White actually scores 0.17; where Elo says 0.93, the model says 0.88
-  and White scores 0.87.
 
 ## Data leakage rules
 
@@ -192,8 +198,8 @@ Found while exploring the API; the feature code enforces them:
 - **Nothing produced during the game** is a feature: moves, FEN, ECO opening, termination, end time.
 - **Every feature uses a cutoff at the game's start time**: only games that ended before it.
 - **Player usernames are not a feature**; rating already captures player strength.
-- **Games without a pre-game rating are dropped, not imputed** (300 games, 0.33%). 227 have a
-  player with no earlier rated blitz game in our archives (inactive, bullet/rapid only, new
-  account, or their first game of the event came after a bye); 73 involve the closed account
-  `penguin_cm1`. The player's next post-game rating cannot stand in: it contains the result.
+- **Games without a pre-game rating are dropped, not imputed** (203 games, 0.2%): a player
+  has no earlier rated blitz game in our data (inactive, bullet/rapid only, new account, or
+  their first game of the event came after a bye). The player's next post-game rating
+  cannot stand in: it contains the result.
 - **Train/test split is by event, in time order** (no random split across rounds of one event).
