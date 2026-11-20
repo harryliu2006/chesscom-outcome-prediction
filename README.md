@@ -226,6 +226,20 @@ Training events only (76,493 games); the test events stay unseen. Plots in `resu
 - **Overall, form adds a little, consistently**: about 0.5% lower log loss than rating
   difference alone. Rating already contains most of what is predictable before the game.
 
+**Feature selection (final model inputs, `MODEL_FEATURES` in `src/features.py`):**
+
+| Kept | Why |
+|---|---|
+| `rating_diff` | Carries most of the signal on its own (CV log loss 0.789 vs 0.842 for the Elo formula) |
+| `rating_mean` | Draws rise sharply between top players |
+| `diff_games_30d` (log scale) | The more active player underperforms their rating |
+| `white_draw_rate_30d`, `black_draw_rate_30d` | Players who draw a lot keep drawing |
+
+Dropped: `elo_expected` (same ordering as `rating_diff`), `white/black_rating_pre` (exactly
+`rating_mean` ± `rating_diff`/2), `rating_change_30d` and `score_vs_expected_30d` (no
+consistent gain). CV log loss with the 5 kept features: **0.7852**, vs 0.7889 for
+`rating_diff` alone (better in 5/5 folds) and 0.7850 for all 17 features.
+
 ## Data leakage rules
 
 Found while exploring the API; the feature code enforces them:
