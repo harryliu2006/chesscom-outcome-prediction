@@ -29,8 +29,9 @@ DAY = 86_400
 KEYS = ["event_id", "round", "game_url", "start_time", "white", "black"]  # not features
 LABEL = "outcome"
 RATING_FEATURES = ["white_rating_pre", "black_rating_pre", "rating_diff", "rating_mean", "elo_expected"]
-FORM_STATS = ["games_30d", "score_vs_expected_30d", "rating_change_30d", "draw_rate_30d",
-              "days_since_last_game"]
+# days_since_last_game was tried and dropped: earlier rounds count as recent games, so in
+# rounds 2-11 it only measured the few minutes since the previous round.
+FORM_STATS = ["games_30d", "score_vs_expected_30d", "rating_change_30d", "draw_rate_30d"]
 FORM_FEATURES = ([f"{side}_{s}" for side in ("white", "black") for s in FORM_STATS]
                  + [f"diff_{s}" for s in FORM_STATS])
 FEATURES = RATING_FEATURES + FORM_FEATURES
@@ -100,7 +101,6 @@ class History:
                                                   (self.c_resid[hi] - self.c_resid[lo]) / n_resid, np.nan),
                 "rating_change_30d": np.where(known, self.c_delta[hi] - self.c_delta[lo], 0.0),
                 "draw_rate_30d": np.where(n > 0, (self.c_draw[hi] - self.c_draw[lo]) / n, np.nan),
-                "days_since_last_game": np.where(has_prev, (t - self.end_time[lastc]) / DAY, np.nan),
             })
         return out
 

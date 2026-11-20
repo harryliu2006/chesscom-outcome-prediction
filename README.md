@@ -75,7 +75,10 @@ this game started**. Earlier rounds of the same event count like any other recen
 | Group | Features |
 |---|---|
 | Rating | `white_rating_pre`, `black_rating_pre`, `rating_diff` (White − Black), `rating_mean`, `elo_expected` = 1 / (1 + 10^(−diff/400)) |
-| Recent form, 30 days before the game, per player and White − Black (`diff_`) | `games_30d`, `score_vs_expected_30d` (mean actual − Elo-expected score), `rating_change_30d`, `draw_rate_30d`, `days_since_last_game` |
+| Recent form, 30 days before the game, per player and White − Black (`diff_`) | `games_30d`, `score_vs_expected_30d` (mean actual − Elo-expected score), `rating_change_30d`, `draw_rate_30d` |
+
+`days_since_last_game` was considered and dropped: because earlier rounds count as recent
+games, in rounds 2–11 it only measured the few minutes since the previous round.
 | Label | `outcome` ∈ {white, draw, black} |
 
 `event_id`, `round`, `game_url`, `start_time`, `white`, `black` are kept as keys for the
