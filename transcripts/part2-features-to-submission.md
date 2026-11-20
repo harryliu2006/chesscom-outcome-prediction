@@ -1,6 +1,6 @@
 # Session transcript
 
-Claude Code session (Claude Opus 5.5) that built this project. Rendered from `main-session.jsonl` by `to_markdown.py`: tool calls and their output are folded; long outputs are truncated; system reminders are omitted.
+Claude Code session (Claude Opus 5.5) that built this project. Rendered from `part2-features-to-submission.jsonl` by `to_markdown.py`: tool calls and their output are folded; long outputs are truncated; system reminders are omitted.
 
 ### Claude
 

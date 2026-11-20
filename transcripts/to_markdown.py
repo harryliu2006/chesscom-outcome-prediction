@@ -71,10 +71,10 @@ def tool_summary(name: str, inp: dict) -> tuple[str, str]:
     return short, fence(truncate(json.dumps(inp, indent=1), 1500), "json")
 
 
-def render(rows: list[dict]) -> str:
+def render(rows: list[dict], source: str = "the .jsonl export") -> str:
     out = ["# Session transcript", "",
            "Claude Code session (Claude Opus 5.5) that built this project. Rendered from "
-           "`main-session.jsonl` by `to_markdown.py`: tool calls and their output are folded; "
+           f"`{source}` by `to_markdown.py`: tool calls and their output are folded; "
            "long outputs are truncated; system reminders are omitted.", ""]
     results = {}
     for r in rows:
@@ -133,7 +133,7 @@ def main() -> None:
     src, dst = sys.argv[1], sys.argv[2]
     rows = [json.loads(line) for line in open(src)]
     with open(dst, "w") as f:
-        f.write(render(rows))
+        f.write(render(rows, source=src.split("/")[-1]))
 
 
 if __name__ == "__main__":
